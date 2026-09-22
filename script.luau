@@ -170,9 +170,6 @@ task.spawn(function()
                     if r and autofarmActive then
                         r.Velocity = Vector3.new(0, 0, 0)
                         r.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                        if r.Position.Y < 35 then
-                            r.CFrame = CFrame.new(r.Position.X, 40, r.Position.Z)
-                        end
                     else
                         if connection then
                             connection:Disconnect()
@@ -180,47 +177,57 @@ task.spawn(function()
                     end
                 end)
                 
-                -- Collect all actual stage checkpoints in the game
+                -- Collect all actual stage checkpoints (DarknessPart inside CaveStage)
                 local checkpoints = getStageCheckpoints()
                 
                 if #checkpoints > 0 then
-                    statusLabel.Text = "Status: Touching " .. #checkpoints .. " checkpoints..."
+                    statusLabel.Text = "Status: Sliding through " .. #checkpoints .. " checkpoints..."
                     for _, cp in ipairs(checkpoints) do
                         if not autofarmActive then break end
                         local _, r = getCharacter()
                         if r then
-                            -- Teleport directly onto/through each checkpoint wall
-                            r.CFrame = cp.CFrame + Vector3.new(0, 2, 0)
+                            -- Smoothly slide through each checkpoint from slightly behind to slightly in front
+                            local cpPos = cp.Position
+                            local startPos = cpPos - Vector3.new(0, 0, 15)
+                            local endPos = cpPos + Vector3.new(0, 0, 15)
+                            
+                            r.CFrame = CFrame.new(startPos)
+                            task.wait(0.08)
+                            
+                            r.CFrame = CFrame.new(cpPos)
                             pcall(function()
                                 firetouchinterest(r, cp, 0)
                                 firetouchinterest(r, cp, 1)
                             end)
+                            task.wait(0.12)
+                            
+                            r.CFrame = CFrame.new(endPos)
+                            task.wait(0.1)
                         end
-                        task.wait(0.25) -- Small delay to ensure stage reward/gold registers
                     end
                 else
-                    -- Fallback: Step through Z coordinates incrementally if checkpoints aren't indexed yet
+                    -- Fallback: Step through Z coordinates smoothly if checkpoints aren't loaded yet
                     for z = 0, 9400, 300 do
                         if not autofarmActive then break end
                         local _, r = getCharacter()
                         if r then
                             r.CFrame = CFrame.new(0, 40, z)
                         end
-                        task.wait(0.2)
+                        task.wait(0.15)
                     end
                 end
                 
                 statusLabel.Text = "Status: Reaching end chest..."
                 
-                -- Find and move to end chest
-                local targetPos = Vector3.new(0, 300, 9550)
+                -- Find and move to end chest firmly without bouncing
+                local targetPos = Vector3.new(0, 50, 9550)
                 local chestPart = findEndChest()
                 if chestPart then
-                    targetPos = chestPart.Position + Vector3.new(0, 5, 0)
+                    targetPos = chestPart.Position + Vector3.new(0, 2, 0)
                 end
                 
                 local startTime = tick()
-                while autofarmActive and tick() - startTime < 6 do
+                while autofarmActive and tick() - startTime < 8 do
                     local _, r = getCharacter()
                     if r then
                         r.CFrame = CFrame.new(targetPos)
@@ -233,17 +240,24 @@ task.spawn(function()
                             end)
                         end
                     end
-                    task.wait(0.2)
+                    task.wait(0.25)
                 end
                 
                 if connection then
                     connection:Disconnect()
                 end
                 
-                statusLabel.Text = "Status: Waiting for round reset..."
+                statusLabel.Text = "Status: Waiting for character reset..."
                 
-                local waitStart = tick()
-                while autofarmActive and tick() - waitStart < 12 do
+                -- Wait until the player character respawns or resets after round completion
+                local resetStart = tick()
+                while autofarmActive and tick() - resetStart < 20 do
+                    local char, root, hum = getCharacter()
+                    -- If character was destroyed or health is 0 or respawned, break out early
+                    if not char or not root or not hum or hum.Health <= 0 then
+                        task.wait(2) -- Wait for new spawn to load fully
+                        break
+                    end
                     task.wait(0.5)
                 end
             else
