@@ -197,26 +197,25 @@ local function getStageCheckpoints()
     return checkpoints
 end
 
--- Smoothly slide through each checkpoint with proper hit events
+-- Optimized stage traversal for speed while maintaining reliability
 local function traverseCheckpoints()
     local checkpoints = getStageCheckpoints()
     
-    -- If fewer checkpoints found or as a guaranteed backup, ensure we also cover every fixed Z interval (every 150 studs from 0 to 9400)
-    statusLabel.Text = "Status: Traversing stages meticulously..."
+    statusLabel.Text = "Status: Traversing stages..."
     
     local currentZ = 0
     while currentZ <= 9400 and autofarmActive do
         local _, r = getCharacter()
         if r then
-            -- Approach position, hit position, hold position
-            r.CFrame = CFrame.new(0, 40, currentZ - 10)
-            task.wait(0.1)
+            -- Optimized approach with minimal but sufficient delays
+            r.CFrame = CFrame.new(0, 40, currentZ - 5)
+            task.wait(0.04)
             
             r.CFrame = CFrame.new(0, 40, currentZ)
             
-            -- Also fire touch interest on any nearby DarknessPart
+            -- Fire touch interest on nearby DarknessPart
             for _, cp in ipairs(checkpoints) do
-                if cp and cp.Parent and math.abs(cp.Position.Z - currentZ) < 80 then
+                if cp and cp.Parent and math.abs(cp.Position.Z - currentZ) < 60 then
                     pcall(function()
                         firetouchinterest(r, cp, 0)
                         firetouchinterest(r, cp, 1)
@@ -227,9 +226,9 @@ local function traverseCheckpoints()
             -- Sync with server using game's own mechanism
             syncWithServer()
             
-            task.wait(0.2) -- Stable hold time per stage interval
+            task.wait(0.08) -- Reduced from 0.2 for faster traversal
         end
-        currentZ = currentZ + 150
+        currentZ = currentZ + 120 -- Reduced from 150 for better coverage
     end
 end
 
@@ -268,7 +267,7 @@ task.spawn(function()
                 end
                 
                 local startTime = tick()
-                while autofarmActive and tick() - startTime < 8 do
+                while autofarmActive and tick() - startTime < 5 do
                     local _, r = getCharacter()
                     if r then
                         r.CFrame = CFrame.new(targetPos)
@@ -283,7 +282,7 @@ task.spawn(function()
                         -- Sync with server before chest claim
                         syncWithServer()
                     end
-                    task.wait(0.25)
+                    task.wait(0.15) -- Reduced from 0.25 for faster chest claim
                 end
                 
                 if connection then
@@ -292,16 +291,16 @@ task.spawn(function()
                 
                 statusLabel.Text = "Status: Waiting for character reset..."
                 
-                -- Wait until the player character respawns or resets after round completion
+                -- Optimized wait for character respawn
                 local resetStart = tick()
-                while autofarmActive and tick() - resetStart < 20 do
+                while autofarmActive and tick() - resetStart < 15 do
                     local char, root, hum = getCharacter()
                     -- If character was destroyed or health is 0 or respawned, break out early
                     if not char or not root or not hum or hum.Health <= 0 then
-                        task.wait(2) -- Wait for new spawn to load fully
+                        task.wait(1.5) -- Reduced from 2 for faster respawn
                         break
                     end
-                    task.wait(0.5)
+                    task.wait(0.3) -- Reduced from 0.5 for faster respawn check
                 end
             else
                 statusLabel.Text = "Status: Waiting for character spawn..."
