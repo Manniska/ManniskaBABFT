@@ -171,13 +171,13 @@ local function traverseCheckpoints()
     local checkpoints = getStageCheckpoints()
     if #checkpoints == 0 then
         -- Fallback if no DarknessPart found yet
-        for z = 0, 9400, 250 do
+        for z = 0, 9400, 200 do
             if not autofarmActive then break end
             local _, r = getCharacter()
             if r then
                 r.CFrame = CFrame.new(0, 40, z)
             end
-            task.wait(0.12)
+            task.wait(0.25)
         end
         return
     end
@@ -189,25 +189,25 @@ local function traverseCheckpoints()
         if cp and cp.Parent then
             local cpPos = cp.Position
             
-            -- Approach smoothly from 20 studs behind to 20 studs in front of each DarknessPart
-            local startPos = Vector3.new(cpPos.X, 40, cpPos.Z - 20)
+            -- Slower, more deliberate movement so the game server registers each stage touch
+            local startPos = Vector3.new(cpPos.X, 40, cpPos.Z - 30)
             local midPos = Vector3.new(cpPos.X, 40, cpPos.Z)
-            local endPos = Vector3.new(cpPos.X, 40, cpPos.Z + 20)
+            local endPos = Vector3.new(cpPos.X, 40, cpPos.Z + 30)
             
             local _, r = getCharacter()
             if r then
                 r.CFrame = CFrame.new(startPos)
-                task.wait(0.04)
+                task.wait(0.15)
                 
                 r.CFrame = CFrame.new(midPos)
                 pcall(function()
                     firetouchinterest(r, cp, 0)
                     firetouchinterest(r, cp, 1)
                 end)
-                task.wait(0.08)
+                task.wait(0.3) -- Give the server time to register the touch
                 
                 r.CFrame = CFrame.new(endPos)
-                task.wait(0.04)
+                task.wait(0.15)
             end
         end
     end
