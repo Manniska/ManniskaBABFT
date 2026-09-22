@@ -135,14 +135,13 @@ local function navigateToPoint(targetCFrame, speed)
     return tween
 end
 
--- Find all actual stage checkpoint parts in Workspace by searching for DarknessPart or stage components
+-- Find all actual stage checkpoint parts in Workspace by checking for DarknessPart inside CaveStage folders
 local function getStageCheckpoints()
     local checkpoints = {}
     for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            local name = obj.Name
-            -- BABFT stage transition walls are named DarknessPart
-            if name == "DarknessPart" or name:lower():find("darknesspart") then
+        if obj:IsA("BasePart") and obj.Name == "DarknessPart" then
+            local parent = obj.Parent
+            if parent and parent.Name:lower():find("cavestage") then
                 table.insert(checkpoints, obj)
             end
         end
