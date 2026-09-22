@@ -155,6 +155,64 @@ local function getStageCheckpoints()
     return checkpoints
 end
 
+-- Smoothly slide through each checkpoint with proper hit events
+local function traverseCheckpoints()
+    local checkpoints = getStageCheckpoints()
+    if #checkpoints == 0 then
+        -- Fallback if no DarknessPart found yet
+        for z = 0, 9400, 300 do
+            if not autofarmActive then break end
+            local _, r = getCharacter()
+            if r then
+                r.CFrame = CFrame.new(0, 40, z)
+            end
+            task.wait(0.15)
+        end
+        return
+    end
+    
+    statusLabel.Text = "Status: Sliding through " .. #checkpoints .. " checkpoints..."
+    for _, cp in ipairs(checkpoints) do
+        if not autofarmActive then break end
+        
+        -- Make sure checkpoint part is valid
+        if cp and cp.Parent then
+            local cpPos = cp.Position
+            
+            -- Approach from behind, hit center, move forward
+            local startPos = cpPos - Vector3.new(0, 0, 10)
+            local midPos = cpPos
+            local endPos = cpPos + Vector3.new(0, 0, 10)
+            
+            local _, r = getCharacter()
+            if r then
+                r.CFrame = CFrame.new(startPos)
+                task.wait(0.05)
+                
+                r.CFrame = CFrame.new(midPos)
+                -- Fire touch interest multiple times with proper touch simulation
+                pcall(function()
+                    firetouchinterest(r, cp, 0)
+                    firetouchinterest(r, cp, 1)
+                end)
+                
+                -- Also simulate actual touch event if Touched event exists on part
+                pcall(function()
+                    for _, child in ipairs(cp:GetConnectedParts(true)) do
+                        firetouchinterest(r, child, 0)
+                        firetouchinterest(r, child, 1)
+                    end
+                end)
+                
+                task.wait(0.15)
+                
+                r.CFrame = CFrame.new(endPos)
+                task.wait(0.08)
+            end
+        end
+    end
+end
+
 -- Autofarm main coroutine
 task.spawn(function()
     while true do
@@ -178,44 +236,7 @@ task.spawn(function()
                 end)
                 
                 -- Collect all actual stage checkpoints (DarknessPart inside CaveStage)
-                local checkpoints = getStageCheckpoints()
-                
-                if #checkpoints > 0 then
-                    statusLabel.Text = "Status: Sliding through " .. #checkpoints .. " checkpoints..."
-                    for _, cp in ipairs(checkpoints) do
-                        if not autofarmActive then break end
-                        local _, r = getCharacter()
-                        if r then
-                            -- Smoothly slide through each checkpoint from slightly behind to slightly in front
-                            local cpPos = cp.Position
-                            local startPos = cpPos - Vector3.new(0, 0, 15)
-                            local endPos = cpPos + Vector3.new(0, 0, 15)
-                            
-                            r.CFrame = CFrame.new(startPos)
-                            task.wait(0.08)
-                            
-                            r.CFrame = CFrame.new(cpPos)
-                            pcall(function()
-                                firetouchinterest(r, cp, 0)
-                                firetouchinterest(r, cp, 1)
-                            end)
-                            task.wait(0.12)
-                            
-                            r.CFrame = CFrame.new(endPos)
-                            task.wait(0.1)
-                        end
-                    end
-                else
-                    -- Fallback: Step through Z coordinates smoothly if checkpoints aren't loaded yet
-                    for z = 0, 9400, 300 do
-                        if not autofarmActive then break end
-                        local _, r = getCharacter()
-                        if r then
-                            r.CFrame = CFrame.new(0, 40, z)
-                        end
-                        task.wait(0.15)
-                    end
-                end
+                traverseCheckpoints()
                 
                 statusLabel.Text = "Status: Reaching end chest..."
                 
