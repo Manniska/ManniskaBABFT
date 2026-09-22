@@ -147,12 +147,23 @@ local function getStageCheckpoints()
         end
     end
     
-    -- Sort checkpoints in order along the Z axis from start to end
+    -- Sort checkpoints uniquely by Z position so we don't skip any stages and cover all stages reliably
     table.sort(checkpoints, function(a, b)
         return a.Position.Z < b.Position.Z
     end)
     
-    return checkpoints
+    -- Filter out duplicates by rounding Z to nearest 50 studs
+    local uniqueCheckpoints = {}
+    local lastZ = -9999
+    for _, cp in ipairs(checkpoints) do
+        local zRounded = math.round(cp.Position.Z / 50) * 50
+        if math.abs(zRounded - lastZ) > 40 then
+            table.insert(uniqueCheckpoints, cp)
+            lastZ = zRounded
+        end
+    end
+    
+    return uniqueCheckpoints
 end
 
 -- Smoothly slide through each checkpoint with proper hit events
@@ -160,13 +171,13 @@ local function traverseCheckpoints()
     local checkpoints = getStageCheckpoints()
     if #checkpoints == 0 then
         -- Fallback if no DarknessPart found yet
-        for z = 0, 9400, 300 do
+        for z = 0, 9400, 250 do
             if not autofarmActive then break end
             local _, r = getCharacter()
             if r then
                 r.CFrame = CFrame.new(0, 40, z)
             end
-            task.wait(0.15)
+            task.wait(0.12)
         end
         return
     end
@@ -175,39 +186,28 @@ local function traverseCheckpoints()
     for _, cp in ipairs(checkpoints) do
         if not autofarmActive then break end
         
-        -- Make sure checkpoint part is valid
         if cp and cp.Parent then
             local cpPos = cp.Position
             
-            -- Approach from behind, hit center, move forward
-            local startPos = cpPos - Vector3.new(0, 0, 10)
-            local midPos = cpPos
-            local endPos = cpPos + Vector3.new(0, 0, 10)
+            -- Approach smoothly from 20 studs behind to 20 studs in front of each DarknessPart
+            local startPos = Vector3.new(cpPos.X, 40, cpPos.Z - 20)
+            local midPos = Vector3.new(cpPos.X, 40, cpPos.Z)
+            local endPos = Vector3.new(cpPos.X, 40, cpPos.Z + 20)
             
             local _, r = getCharacter()
             if r then
                 r.CFrame = CFrame.new(startPos)
-                task.wait(0.05)
+                task.wait(0.04)
                 
                 r.CFrame = CFrame.new(midPos)
-                -- Fire touch interest multiple times with proper touch simulation
                 pcall(function()
                     firetouchinterest(r, cp, 0)
                     firetouchinterest(r, cp, 1)
                 end)
-                
-                -- Also simulate actual touch event if Touched event exists on part
-                pcall(function()
-                    for _, child in ipairs(cp:GetConnectedParts(true)) do
-                        firetouchinterest(r, child, 0)
-                        firetouchinterest(r, child, 1)
-                    end
-                end)
-                
-                task.wait(0.15)
+                task.wait(0.08)
                 
                 r.CFrame = CFrame.new(endPos)
-                task.wait(0.08)
+                task.wait(0.04)
             end
         end
     end
