@@ -135,22 +135,80 @@ local function navigateToPoint(targetCFrame, speed)
     return tween
 end
 
+-- Find all actual stage checkpoint parts in Workspace so we touch every single one
+local function getStageCheckpoints()
+    local checkpoints = {}
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local name = obj.Name:lower()
+            -- BABFT stage checkpoint parts / team touch blocks are usually located along the map
+            if name:find("stage") or name:find("checkpoint") or (obj.Position.Z > 0 and obj.Position.Z < 9500 and obj.Size.Z > 1 and obj.Size.Magnitude > 15) then
+                table.insert(checkpoints, obj)
+            end
+        end
+    end
+    
+    -- Sort checkpoints in order along the Z axis from start to end
+    table.sort(checkpoints, function(a, b)
+        return a.Position.Z < b.Position.Z
+    end)
+    
+    return checkpoints
+end
+
 -- Autofarm main coroutine
 task.spawn(function()
     while true do
         if autofarmActive then
-            statusLabel.Text = "Status: Traversing stages..."
+            statusLabel.Text = "Status: Traversing stage checkpoints..."
             
             local char, root, humanoid = getCharacter()
             if root and humanoid then
-                -- Safely step through stage checkpoints along the Z-axis (0 to 9400)
-                for z = 0, 9400, 400 do
-                    if not autofarmActive then break end
+                -- Anti-gravity / anti-fall lock
+                local connection
+                connection = RunService.Stepped:Connect(function()
                     local _, r = getCharacter()
-                    if r then
-                        r.CFrame = CFrame.new(0, 30, z)
+                    if r and autofarmActive then
+                        r.Velocity = Vector3.new(0, 0, 0)
+                        r.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                        if r.Position.Y < 35 then
+                            r.CFrame = CFrame.new(r.Position.X, 40, r.Position.Z)
+                        end
+                    else
+                        if connection then
+                            connection:Disconnect()
+                        end
                     end
-                    task.wait(0.15)
+                end)
+                
+                -- Collect all actual stage checkpoints in the game
+                local checkpoints = getStageCheckpoints()
+                
+                if #checkpoints > 0 then
+                    statusLabel.Text = "Status: Touching " .. #checkpoints .. " checkpoints..."
+                    for _, cp in ipairs(checkpoints) do
+                        if not autofarmActive then break end
+                        local _, r = getCharacter()
+                        if r then
+                            -- Teleport directly onto/through each checkpoint wall
+                            r.CFrame = cp.CFrame + Vector3.new(0, 2, 0)
+                            pcall(function()
+                                firetouchinterest(r, cp, 0)
+                                firetouchinterest(r, cp, 1)
+                            end)
+                        end
+                        task.wait(0.25) -- Small delay to ensure stage reward/gold registers
+                    end
+                else
+                    -- Fallback: Step through Z coordinates incrementally if checkpoints aren't indexed yet
+                    for z = 0, 9400, 300 do
+                        if not autofarmActive then break end
+                        local _, r = getCharacter()
+                        if r then
+                            r.CFrame = CFrame.new(0, 40, z)
+                        end
+                        task.wait(0.2)
+                    end
                 end
                 
                 statusLabel.Text = "Status: Reaching end chest..."
@@ -167,6 +225,8 @@ task.spawn(function()
                     local _, r = getCharacter()
                     if r then
                         r.CFrame = CFrame.new(targetPos)
+                        r.Velocity = Vector3.new(0, 0, 0)
+                        r.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                         if chestPart then
                             pcall(function()
                                 firetouchinterest(r, chestPart, 0)
@@ -175,6 +235,10 @@ task.spawn(function()
                         end
                     end
                     task.wait(0.2)
+                end
+                
+                if connection then
+                    connection:Disconnect()
                 end
                 
                 statusLabel.Text = "Status: Waiting for round reset..."
