@@ -53,12 +53,20 @@ local summary = string.format("\n=== SUMMARY === Found %d Scripts & %d Remotes",
 print(summary)
 table.insert(outputLines, summary)
 
--- Save to a text file if writefile is supported by the executor
+-- Save to a text file using standard executor paths
 pcall(function()
     if writefile then
-        writefile("ManniskaBABFT_ScanReport.txt", table.concat(outputLines, "\n"))
-        print("[SUCCESS] Report saved to workspace folder as 'ManniskaBABFT_ScanReport.txt'!")
+        local filename = "ManniskaBABFT_ScanReport.txt"
+        writefile(filename, table.concat(outputLines, "\n"))
+        print("[SUCCESS] Report saved! Check your executor's workspace folder.")
+        
+        -- Also try absolute path if supported or print workspace notification
+        if makefolder then
+            pcall(function() makefolder("ManniskaReports") end)
+            writefile("ManniskaReports/ScanReport.txt", table.concat(outputLines, "\n"))
+            print("[SUCCESS] Also saved to 'ManniskaReports/ScanReport.txt'!")
+        end
     else
-        print("[NOTICE] writefile function not available in your executor. Check console output above.")
+        print("[NOTICE] writefile function not available in your executor. Please copy from console output.")
     end
 end)
