@@ -79,7 +79,6 @@ toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 127)
 toggleButton.BorderSizePixel = 0
 toggleButton.Text = "Start Autofarm [OFF]"
 toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleButton.TextSize:eq = 14
 toggleButton.TextSize = 14
 toggleButton.Font = Enum.Font.SourceSansBold
 toggleButton.Parent = mainFrame
