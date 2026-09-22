@@ -1,30 +1,27 @@
--- ManniskaBABFT Autofarm Script for Build A Boat For Treasure (BABFT)
--- Features:
--- 1. Clean Toggleable UI (GUI) with Status Display
--- 2. Stage-by-stage progression loop (passes through all stages/checkpoints to satisfy game validation)
--- 3. Automatic End Chest teleport & gold claim
--- 4. Anti-AFK protection
+-- =====================================================================
+--  MANNISKABABFT - BUILD A BOAT FOR TREASURE AUTOFARM SUITE
+-- =====================================================================
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local VirtualUser = game:GetService("VirtualUser")
+local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Anti-AFK
+-- Anti-AFK Setup
 LocalPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- Create UI
+-- UI Setup (Safely parenting to PlayerGui or CoreGui)
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ManniskaBABFTGui"
 screenGui.ResetOnSpawn = false
 
--- Try parent to CoreGui, fallback to PlayerGui
-local success, err = pcall(function()
+local success = pcall(function()
     screenGui.Parent = CoreGui
 end)
 if not success or not screenGui.Parent then
@@ -33,11 +30,12 @@ if not success or not screenGui.Parent then
     end)
 end
 
+-- Main Window Frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.Size = UDim2.new(0, 260, 0, 160)
 mainFrame.Position = UDim2.new(0.05, 0, 0.1, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 30)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Draggable = true
@@ -49,10 +47,10 @@ corner.Parent = mainFrame
 
 local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, 0, 0, 35)
-titleLabel.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+titleLabel.BackgroundColor3 = Color3.fromRGB(30, 34, 46)
 titleLabel.BorderSizePixel = 0
 titleLabel.Text = "Manniska BABFT Autofarm"
-titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextColor3 = Color3.fromRGB(240, 240, 250)
 titleLabel.TextSize = 14
 titleLabel.Font = Enum.Font.SourceSansBold
 titleLabel.Parent = mainFrame
@@ -66,7 +64,7 @@ statusLabel.Size = UDim2.new(1, -20, 0, 30)
 statusLabel.Position = UDim2.new(0, 10, 0, 45)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Text = "Status: Idle"
-statusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+statusLabel.TextColor3 = Color3.fromRGB(180, 185, 200)
 statusLabel.TextSize = 13
 statusLabel.Font = Enum.Font.SourceSans
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -75,7 +73,7 @@ statusLabel.Parent = mainFrame
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(1, -20, 0, 40)
 toggleButton.Position = UDim2.new(0, 10, 0, 85)
-toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 127)
+toggleButton.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
 toggleButton.BorderSizePixel = 0
 toggleButton.Text = "Start Autofarm [OFF]"
 toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -87,7 +85,7 @@ local btnCorner = Instance.new("UICorner")
 btnCorner.CornerRadius = UDim.new(0, 6)
 btnCorner.Parent = toggleButton
 
--- Autofarm Logic State
+-- Autofarm State & Logic
 local autofarmActive = false
 
 local function getRootPart()
@@ -110,42 +108,18 @@ local function findEndChest()
     return nil
 end
 
--- Reliable stage checkpoint traversal by collecting actual Stage/Checkpoint parts in order
-local function getStages()
-    local stages = {}
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            local name = obj.Name:lower()
-            -- BABFT stage parts typically contain stage numbers or are named stage parts / team blocks
-            if name:find("stage") or name:find("checkpoint") or (obj.Position.Z > 10 and obj.Position.Z < 9400 and obj.Size.Z > 5 and obj.Size.Magnitude > 10) then
-                table.insert(stages, obj)
-            end
-        end
-    end
-
-    -- Sort unique stages along the Z axis from start to end
-    table.sort(stages, function(a, b)
-        return a.Position.Z < b.Position.Z
-    end)
-
-    return stages
-end
-
--- Main loop task
+-- Autofarm thread
 task.spawn(function()
     while true do
         if autofarmActive then
-            statusLabel.Text = "Status: Running run..."
-
+            statusLabel.Text = "Status: Traversing stages..."
+            
             local rootPart = getRootPart()
             local character = LocalPlayer.Character
-
+            
             if rootPart and character and character:FindFirstChildOfClass("Humanoid") and character.Humanoid.Health > 0 then
-                -- Step 1: Traverse stages reliably
-                -- Let's find stage folders or parts in workspace. Stages in BABFT are spaced out every ~400-500 studs.
-                statusLabel.Text = "Status: Traversing stages..."
-
-                -- We can teleport through key Z checkpoints from 0 to 9400
+                
+                -- Step through checkpoints along Z-axis (from 0 to 9400) to satisfy stage validation
                 for z = 0, 9400, 350 do
                     if not autofarmActive then break end
                     local rp = getRootPart()
@@ -154,16 +128,16 @@ task.spawn(function()
                     end
                     task.wait(0.2)
                 end
-
-                statusLabel.Text = "Status: Reaching end chest..."
-
-                -- Step 2: Arrive at end chest and claim gold
+                
+                statusLabel.Text = "Status: Claiming chest..."
+                
+                -- Arrive at end chest
                 local targetPos = Vector3.new(0, 300, 9550)
                 local chestPart = findEndChest()
                 if chestPart then
                     targetPos = chestPart.Position + Vector3.new(0, 5, 0)
                 end
-
+                
                 local startTime = tick()
                 while autofarmActive and tick() - startTime < 5 do
                     local rp = getRootPart()
@@ -178,10 +152,9 @@ task.spawn(function()
                     end
                     task.wait(0.2)
                 end
-
+                
                 statusLabel.Text = "Status: Waiting for round reset..."
-
-                -- Wait for round restart / respawn
+                
                 local waitStart = tick()
                 while autofarmActive and tick() - waitStart < 12 do
                     task.wait(0.5)
@@ -197,16 +170,16 @@ task.spawn(function()
     end
 end)
 
--- Toggle Button Event
+-- Button Toggle Event
 toggleButton.MouseButton1Click:Connect(function()
     autofarmActive = not autofarmActive
     if autofarmActive then
         toggleButton.Text = "Stop Autofarm [ON]"
-        toggleButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+        toggleButton.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
     else
         toggleButton.Text = "Start Autofarm [OFF]"
-        toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 127)
+        toggleButton.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
     end
 end)
 
-print("[ManniskaBABFT] Script loaded with GUI successfully.")
+print("[ManniskaBABFT] Loaded successfully!")
