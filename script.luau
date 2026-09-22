@@ -183,6 +183,127 @@ local function navigateToPoint(targetCFrame, speed)
     return tween
 end
 
+-- =====================================================================
+--  QUEST AUTO-COMPLETE SYSTEM
+-- =====================================================================
+local QuestConditions = ReplicatedStorage.Scripts:FindFirstChild("QuestConditions")
+local ChallengeConditions = ReplicatedStorage.Scripts:FindFirstChild("ChallengeConditions")
+
+-- Find quest UI elements
+local function findQuestUI()
+    local playerGui = localPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return nil, nil, nil end
+    
+    local shopGui = playerGui:FindFirstChild("ShopGui")
+    if not shopGui then return nil, nil, nil end
+    
+    local mainFrame = shopGui:FindFirstChild("MainFrame")
+    if not mainFrame then return nil, nil, nil end
+    
+    local tabFrame = mainFrame:FindFirstChild("TabFrame")
+    if not tabFrame then return nil, nil, nil end
+    
+    local questFrame = tabFrame:FindFirstChild("QuestFrame")
+    if not questFrame then return nil, nil, nil end
+    
+    local scrollingFrame = questFrame:FindFirstChild("ScrollingFrame")
+    local selectedFrame = questFrame:FindFirstChild("SelectedFrame")
+    
+    return shopGui, questFrame, scrollingFrame, selectedFrame
+end
+
+-- Find quest objectives (like "touch the cloud", "touch the target")
+local function findQuestObjectives()
+    local objectives = {}
+    
+    -- Look for touch parts in the game world that might be quest objectives
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        local name = obj.Name:lower()
+        -- Common quest objective names
+        if name:find("cloud") or name:find("target") or name:find("checkpoint") or 
+           name:find("flag") or name:find("finish") or name:find("goal") then
+            if obj:IsA("BasePart") then
+                table.insert(objectives, obj)
+            end
+        end
+    end
+    
+    return objectives
+end
+
+-- Complete a quest objective by touching the required part
+local function completeQuestObjective(objective)
+    if not objective then return false end
+    
+    local _, root = getCharacter()
+    if not root then return false end
+    
+    -- Move to the objective
+    root.CFrame = CFrame.new(objective.Position.X, objective.Position.Y + 2, objective.Position.Z)
+    
+    -- Fire touch interest
+    pcall(function()
+        firetouchinterest(root, objective, 0)
+        firetouchinterest(root, objective, 1)
+    end)
+    
+    task.wait(0.3)
+    return true
+end
+
+-- Auto complete quests
+local function autoCompleteQuests()
+    statusLabel.Text = "Status: Checking quests..."
+    
+    local shopGui, questFrame, scrollingFrame, selectedFrame = findQuestUI()
+    if not shopGui or not selectedFrame then
+        statusLabel.Text = "Status: No quest UI found, skipping..."
+        return
+    end
+    
+    -- Try to activate and complete available quests
+    pcall(function()
+        -- Check if there's an active quest to complete
+        local buyButton = selectedFrame:FindFirstChild("BuyButton")
+        
+        if buyButton then
+            local buttonName = buyButton.Text:lower()
+            
+            -- If button says "Start" or "Activate", start the quest
+            if buttonName:find("start") or buttonName:find("activate") then
+                statusLabel.Text = "Status: Starting quest..."
+                pcall(function()
+                    buyButton.MouseButton1Click:Fire()
+                end)
+                task.wait(1)
+            -- If button says "Claim" or "Complete", claim the reward
+            elseif buttonName:find("claim") or buttonName:find("complete") then
+                statusLabel.Text = "Status: Claiming quest reward..."
+                pcall(function()
+                    buyButton.MouseButton1Click:Fire()
+                end)
+                task.wait(0.5)
+                statusLabel.Text = "Status: Quest claimed!"
+            end
+        end
+        
+        -- Look for quest objectives in the world
+        local objectives = findQuestObjectives()
+        if #objectives > 0 then
+            statusLabel.Text = "Status: Completing quest objectives..."
+            for _, obj in ipairs(objectives) do
+                if not autofarmActive then break end
+                if completeQuestObjective(obj) then
+                    statusLabel.Text = "Status: Objective completed!"
+                    task.wait(0.5)
+                end
+            end
+        end
+    end)
+    
+    task.wait(1) -- Wait for quest UI to update
+end
+
 -- Find all actual stage checkpoint parts in Workspace by checking for DarknessPart inside CaveStage folders
 local function getStageCheckpoints()
     local checkpoints = {}
@@ -291,6 +412,9 @@ task.spawn(function()
                 if connection then
                     connection:Disconnect()
                 end
+                
+                -- Auto-complete quests if available
+                autoCompleteQuests()
                 
                 statusLabel.Text = "Status: Waiting for character reset..."
                 
