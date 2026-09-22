@@ -24,11 +24,13 @@ screenGui.Name = "ManniskaBABFTGui"
 screenGui.ResetOnSpawn = false
 
 -- Try parent to CoreGui, fallback to PlayerGui
-pcall(function()
+local success, err = pcall(function()
     screenGui.Parent = CoreGui
 end)
-if not screenGui.Parent then
-    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+if not success or not screenGui.Parent then
+    pcall(function()
+        screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    end)
 end
 
 local mainFrame = Instance.new("Frame")
