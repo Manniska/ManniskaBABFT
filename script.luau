@@ -30,18 +30,24 @@ local function syncWithServer()
     end)
 end
 
--- Send periodic heartbeat to server
+-- Send periodic heartbeat to server (optimized - every 100ms instead of every frame)
 local heartbeatConnection
+local heartbeatTimer = 0
 local function startHeartbeat()
-    heartbeatConnection = RunService.Heartbeat:Connect(function()
+    heartbeatConnection = RunService.Heartbeat:Connect(function(deltaTime)
         if autofarmActive then
-            pcall(function()
-                queueBlocksRequest:FireServer({
-                    Type = "Heartbeat",
-                    Timestamp = tick(),
-                    Position = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character:FindFirstChild("HumanoidRootPart").Position or Vector3.new()
-                })
-            end)
+            heartbeatTimer = heartbeatTimer + deltaTime
+            if heartbeatTimer >= 0.1 then
+                heartbeatTimer = 0
+                pcall(function()
+                    local root = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    queueBlocksRequest:FireServer({
+                        Type = "Heartbeat",
+                        Timestamp = tick(),
+                        Position = root and root.Position or Vector3.new()
+                    })
+                end)
+            end
         end
     end)
 end
@@ -197,7 +203,7 @@ local function getStageCheckpoints()
     return checkpoints
 end
 
--- Optimized stage traversal for speed while maintaining reliability
+-- Fast stage traversal with essential sync only
 local function traverseCheckpoints()
     local checkpoints = getStageCheckpoints()
     
@@ -207,15 +213,12 @@ local function traverseCheckpoints()
     while currentZ <= 9400 and autofarmActive do
         local _, r = getCharacter()
         if r then
-            -- Optimized approach with minimal but sufficient delays
-            r.CFrame = CFrame.new(0, 40, currentZ - 5)
-            task.wait(0.04)
-            
+            -- Direct teleport to checkpoint position
             r.CFrame = CFrame.new(0, 40, currentZ)
             
             -- Fire touch interest on nearby DarknessPart
             for _, cp in ipairs(checkpoints) do
-                if cp and cp.Parent and math.abs(cp.Position.Z - currentZ) < 60 then
+                if cp and cp.Parent and math.abs(cp.Position.Z - currentZ) < 50 then
                     pcall(function()
                         firetouchinterest(r, cp, 0)
                         firetouchinterest(r, cp, 1)
@@ -223,12 +226,12 @@ local function traverseCheckpoints()
                 end
             end
             
-            -- Sync with server using game's own mechanism
-            syncWithServer()
+            -- Minimal sync call
+            pcall(syncWithServer)
             
-            task.wait(0.08) -- Reduced from 0.2 for faster traversal
+            task.wait(0.05) -- Very fast traversal
         end
-        currentZ = currentZ + 120 -- Reduced from 150 for better coverage
+        currentZ = currentZ + 100 -- Faster coverage
     end
 end
 
@@ -267,7 +270,7 @@ task.spawn(function()
                 end
                 
                 local startTime = tick()
-                while autofarmActive and tick() - startTime < 5 do
+                while autofarmActive and tick() - startTime < 4 do
                     local _, r = getCharacter()
                     if r then
                         r.CFrame = CFrame.new(targetPos)
@@ -279,10 +282,10 @@ task.spawn(function()
                                 firetouchinterest(r, chestPart, 1)
                             end)
                         end
-                        -- Sync with server before chest claim
-                        syncWithServer()
+                        -- Minimal sync
+                        pcall(syncWithServer)
                     end
-                    task.wait(0.15) -- Reduced from 0.25 for faster chest claim
+                    task.wait(0.1) -- Faster chest claim
                 end
                 
                 if connection then
@@ -291,16 +294,15 @@ task.spawn(function()
                 
                 statusLabel.Text = "Status: Waiting for character reset..."
                 
-                -- Optimized wait for character respawn
+                -- Fast respawn wait
                 local resetStart = tick()
-                while autofarmActive and tick() - resetStart < 15 do
+                while autofarmActive and tick() - resetStart < 12 do
                     local char, root, hum = getCharacter()
-                    -- If character was destroyed or health is 0 or respawned, break out early
                     if not char or not root or not hum or hum.Health <= 0 then
-                        task.wait(1.5) -- Reduced from 2 for faster respawn
+                        task.wait(1) -- Fast respawn wait
                         break
                     end
-                    task.wait(0.3) -- Reduced from 0.5 for faster respawn check
+                    task.wait(0.2) -- Fast respawn check
                 end
             else
                 statusLabel.Text = "Status: Waiting for character spawn..."
