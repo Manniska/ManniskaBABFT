@@ -1,99 +1,110 @@
 -- =====================================================================
---  MANNISKABABFT - BUILD A BOAT FOR TREASURE AUTOFARM SUITE
+--  MANNISKABABFT - BUILD A BOAT FOR TREASURE AUTOFARM SUITE V2
 -- =====================================================================
 
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local VirtualUser = game:GetService("VirtualUser")
-local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
 
-local LocalPlayer = Players.LocalPlayer
+local localPlayer = Players.LocalPlayer
 
 -- Anti-AFK Setup
-LocalPlayer.Idled:Connect(function()
+localPlayer.Idled:Connect(function()
     VirtualUser:CaptureController()
     VirtualUser:ClickButton2(Vector2.new())
 end)
 
--- UI Setup (Safely parenting to PlayerGui or CoreGui)
+-- Safe GUI Parent Setup
+local playerGui = localPlayer:WaitForChild("PlayerGui")
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ManniskaBABFTGui"
 screenGui.ResetOnSpawn = false
-
-local success = pcall(function()
-    screenGui.Parent = CoreGui
-end)
-if not success or not screenGui.Parent then
-    pcall(function()
-        screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    end)
-end
+screenGui.Parent = playerGui
 
 -- Main Window Frame
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 260, 0, 160)
+mainFrame.Size = UDim2.new(0, 300, 0, 180)
 mainFrame.Position = UDim2.new(0.05, 0, 0.1, 0)
-mainFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 30)
+mainFrame.BackgroundColor3 = Color3.fromRGB(16, 18, 24)
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.Draggable = true
 mainFrame.Parent = screenGui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
+corner.CornerRadius = UDim.new(0, 10)
 corner.Parent = mainFrame
 
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(42, 50, 70)
+stroke.Thickness = 1.5
+stroke.Parent = mainFrame
+
+-- Title Bar
 local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, 0, 0, 35)
-titleLabel.BackgroundColor3 = Color3.fromRGB(30, 34, 46)
+titleLabel.Size = UDim2.new(1, 0, 0, 40)
+titleLabel.BackgroundColor3 = Color3.fromRGB(22, 26, 36)
 titleLabel.BorderSizePixel = 0
-titleLabel.Text = "Manniska BABFT Autofarm"
-titleLabel.TextColor3 = Color3.fromRGB(240, 240, 250)
+titleLabel.Text = " Manniska BABFT Autofarm"
+titleLabel.TextColor3 = Color3.fromRGB(245, 246, 250)
 titleLabel.TextSize = 14
-titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
 titleLabel.Parent = mainFrame
 
 local titleCorner = Instance.new("UICorner")
-titleCorner.CornerRadius = UDim.new(0, 8)
+titleCorner.CornerRadius = UDim.new(0, 10)
 titleCorner.Parent = titleLabel
 
+-- Status Label
 local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, -20, 0, 30)
-statusLabel.Position = UDim2.new(0, 10, 0, 45)
+statusLabel.Size = UDim2.new(1, -30, 0, 30)
+statusLabel.Position = UDim2.new(0, 15, 0, 50)
 statusLabel.BackgroundTransparency = 1
 statusLabel.Text = "Status: Idle"
-statusLabel.TextColor3 = Color3.fromRGB(180, 185, 200)
+statusLabel.TextColor3 = Color3.fromRGB(140, 148, 170)
 statusLabel.TextSize = 13
-statusLabel.Font = Enum.Font.SourceSans
+statusLabel.Font = Enum.Font.Gotham
 statusLabel.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel.Parent = mainFrame
 
+-- Toggle Button
 local toggleButton = Instance.new("TextButton")
-toggleButton.Size = UDim2.new(1, -20, 0, 40)
-toggleButton.Position = UDim2.new(0, 10, 0, 85)
-toggleButton.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
+toggleButton.Size = UDim2.new(1, -30, 0, 45)
+toggleButton.Position = UDim2.new(0, 15, 0, 95)
+toggleButton.BackgroundColor3 = Color3.fromRGB(32, 38, 52)
 toggleButton.BorderSizePixel = 0
-toggleButton.Text = "Start Autofarm [OFF]"
-toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Text = "Autofarm: OFF"
+toggleButton.TextColor3 = Color3.fromRGB(245, 246, 250)
 toggleButton.TextSize = 14
-toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.Font = Enum.Font.GothamBold
 toggleButton.Parent = mainFrame
 
 local btnCorner = Instance.new("UICorner")
-btnCorner.CornerRadius = UDim.new(0, 6)
+btnCorner.CornerRadius = UDim.new(0, 8)
 btnCorner.Parent = toggleButton
+
+local btnStroke = Instance.new("UIStroke")
+btnStroke.Color = Color3.fromRGB(46, 204, 113)
+btnStroke.Thickness = 1
+btnStroke.Parent = toggleButton
 
 -- Autofarm State & Logic
 local autofarmActive = false
 
-local function getRootPart()
-    local char = LocalPlayer.Character
-    if char then
-        return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+local function getCharacter()
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+        local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
+        if root then
+            return char, root, char.Humanoid
+        end
     end
-    return nil
+    return nil, nil, nil
 end
 
 local function findEndChest()
@@ -108,30 +119,43 @@ local function findEndChest()
     return nil
 end
 
--- Autofarm thread
+-- Kinematic navigation / stage traversal inspired by robust movement loops
+local function navigateToPoint(targetCFrame, speed)
+    local char, root, humanoid = getCharacter()
+    if not root then return end
+    
+    speed = speed or 300
+    local distance = (root.Position - targetCFrame.Position).Magnitude
+    local duration = distance / speed
+    
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
+    tween:Play()
+    
+    return tween
+end
+
+-- Autofarm main coroutine
 task.spawn(function()
     while true do
         if autofarmActive then
             statusLabel.Text = "Status: Traversing stages..."
             
-            local rootPart = getRootPart()
-            local character = LocalPlayer.Character
-            
-            if rootPart and character and character:FindFirstChildOfClass("Humanoid") and character.Humanoid.Health > 0 then
-                
-                -- Step through checkpoints along Z-axis (from 0 to 9400) to satisfy stage validation
-                for z = 0, 9400, 350 do
+            local char, root, humanoid = getCharacter()
+            if root and humanoid then
+                -- Safely step through stage checkpoints along the Z-axis (0 to 9400)
+                for z = 0, 9400, 400 do
                     if not autofarmActive then break end
-                    local rp = getRootPart()
-                    if rp then
-                        rp.CFrame = CFrame.new(0, 30, z)
+                    local _, r = getCharacter()
+                    if r then
+                        r.CFrame = CFrame.new(0, 30, z)
                     end
-                    task.wait(0.2)
+                    task.wait(0.15)
                 end
                 
-                statusLabel.Text = "Status: Claiming chest..."
+                statusLabel.Text = "Status: Reaching end chest..."
                 
-                -- Arrive at end chest
+                -- Find and move to end chest
                 local targetPos = Vector3.new(0, 300, 9550)
                 local chestPart = findEndChest()
                 if chestPart then
@@ -139,14 +163,14 @@ task.spawn(function()
                 end
                 
                 local startTime = tick()
-                while autofarmActive and tick() - startTime < 5 do
-                    local rp = getRootPart()
-                    if rp then
-                        rp.CFrame = CFrame.new(targetPos)
+                while autofarmActive and tick() - startTime < 6 do
+                    local _, r = getCharacter()
+                    if r then
+                        r.CFrame = CFrame.new(targetPos)
                         if chestPart then
                             pcall(function()
-                                firetouchinterest(rp, chestPart, 0)
-                                firetouchinterest(rp, chestPart, 1)
+                                firetouchinterest(r, chestPart, 0)
+                                firetouchinterest(r, chestPart, 1)
                             end)
                         end
                     end
@@ -160,26 +184,28 @@ task.spawn(function()
                     task.wait(0.5)
                 end
             else
-                statusLabel.Text = "Status: Waiting for character..."
+                statusLabel.Text = "Status: Waiting for character spawn..."
                 task.wait(1)
             end
         else
-            statusLabel.Text = "Status: Idle (Paused)"
+            statusLabel.Text = "Status: Idle"
             task.wait(0.5)
         end
     end
 end)
 
--- Button Toggle Event
+-- Toggle Button Interaction
 toggleButton.MouseButton1Click:Connect(function()
     autofarmActive = not autofarmActive
     if autofarmActive then
-        toggleButton.Text = "Stop Autofarm [ON]"
-        toggleButton.BackgroundColor3 = Color3.fromRGB(239, 68, 68)
+        toggleButton.Text = "Autofarm: ON"
+        btnStroke.Color = Color3.fromRGB(240, 70, 70)
+        statusLabel.Text = "Status: Starting..."
     else
-        toggleButton.Text = "Start Autofarm [OFF]"
-        toggleButton.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
+        toggleButton.Text = "Autofarm: OFF"
+        btnStroke.Color = Color3.fromRGB(46, 204, 113)
+        statusLabel.Text = "Status: Paused"
     end
 end)
 
-print("[ManniskaBABFT] Loaded successfully!")
+print("[ManniskaBABFT] Professional Suite v2 Loaded successfully!")
