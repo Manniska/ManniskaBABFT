@@ -8,8 +8,50 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local VirtualUser = game:GetService("VirtualUser")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local localPlayer = Players.LocalPlayer
+
+-- =====================================================================
+--  REMOTE INTEGRATION (From Scan Report)
+-- =====================================================================
+local inputLocalScript = ReplicatedStorage:WaitForChild("InputLocalScript")
+local queueBlocksRequest = inputLocalScript:WaitForChild("QueueBlocksRequest")
+local getSynchronizeInfo = inputLocalScript:WaitForChild("getSynchronizeInfo")
+
+-- Synchronize with server using the game's own sync mechanism
+local function syncWithServer()    
+    pcall(function()
+        local syncData = getSynchronizeInfo:InvokeServer()
+        if syncData then
+            -- Queue movement/input block to ensure server processes our position
+            queueBlocksRequest:FireServer(syncData)
+        end
+    end)
+end
+
+-- Send periodic heartbeat to server
+local heartbeatConnection
+local function startHeartbeat()
+    heartbeatConnection = RunService.Heartbeat:Connect(function()
+        if autofarmActive then
+            pcall(function()
+                queueBlocksRequest:FireServer({
+                    Type = "Heartbeat",
+                    Timestamp = tick(),
+                    Position = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character:FindFirstChild("HumanoidRootPart").Position or Vector3.new()
+                })
+            end)
+        end
+    end)
+end
+
+local function stopHeartbeat()
+    if heartbeatConnection then
+        heartbeatConnection:Disconnect()
+        heartbeatConnection = nil
+    end
+end
 
 -- Anti-AFK Setup
 localPlayer.Idled:Connect(function()
@@ -182,6 +224,9 @@ local function traverseCheckpoints()
                 end
             end
             
+            -- Sync with server using game's own mechanism
+            syncWithServer()
+            
             task.wait(0.2) -- Stable hold time per stage interval
         end
         currentZ = currentZ + 150
@@ -235,6 +280,8 @@ task.spawn(function()
                                 firetouchinterest(r, chestPart, 1)
                             end)
                         end
+                        -- Sync with server before chest claim
+                        syncWithServer()
                     end
                     task.wait(0.25)
                 end
@@ -274,10 +321,12 @@ toggleButton.MouseButton1Click:Connect(function()
         toggleButton.Text = "Autofarm: ON"
         btnStroke.Color = Color3.fromRGB(240, 70, 70)
         statusLabel.Text = "Status: Starting..."
+        startHeartbeat()
     else
         toggleButton.Text = "Autofarm: OFF"
         btnStroke.Color = Color3.fromRGB(46, 204, 113)
         statusLabel.Text = "Status: Paused"
+        stopHeartbeat()
     end
 end)
 
