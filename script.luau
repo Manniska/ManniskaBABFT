@@ -147,69 +147,44 @@ local function getStageCheckpoints()
         end
     end
     
-    -- Sort checkpoints uniquely by Z position so we don't skip any stages and cover all stages reliably
+    -- Sort checkpoints in order along the Z axis from start to end
     table.sort(checkpoints, function(a, b)
         return a.Position.Z < b.Position.Z
     end)
     
-    -- Filter out duplicates by rounding Z to nearest 50 studs
-    local uniqueCheckpoints = {}
-    local lastZ = -9999
-    for _, cp in ipairs(checkpoints) do
-        local zRounded = math.round(cp.Position.Z / 50) * 50
-        if math.abs(zRounded - lastZ) > 40 then
-            table.insert(uniqueCheckpoints, cp)
-            lastZ = zRounded
-        end
-    end
-    
-    return uniqueCheckpoints
+    return checkpoints
 end
 
 -- Smoothly slide through each checkpoint with proper hit events
 local function traverseCheckpoints()
     local checkpoints = getStageCheckpoints()
-    if #checkpoints == 0 then
-        -- Fallback if no DarknessPart found yet
-        for z = 0, 9400, 200 do
-            if not autofarmActive then break end
-            local _, r = getCharacter()
-            if r then
-                r.CFrame = CFrame.new(0, 40, z)
-            end
-            task.wait(0.25)
-        end
-        return
-    end
     
-    statusLabel.Text = "Status: Sliding through " .. #checkpoints .. " checkpoints..."
-    for _, cp in ipairs(checkpoints) do
-        if not autofarmActive then break end
-        
-        if cp and cp.Parent then
-            local cpPos = cp.Position
+    -- If fewer checkpoints found or as a guaranteed backup, ensure we also cover every fixed Z interval (every 150 studs from 0 to 9400)
+    statusLabel.Text = "Status: Traversing stages meticulously..."
+    
+    local currentZ = 0
+    while currentZ <= 9400 and autofarmActive do
+        local _, r = getCharacter()
+        if r then
+            -- Approach position, hit position, hold position
+            r.CFrame = CFrame.new(0, 40, currentZ - 10)
+            task.wait(0.1)
             
-            -- Slower, more deliberate movement so the game server registers each stage touch
-            local startPos = Vector3.new(cpPos.X, 40, cpPos.Z - 30)
-            local midPos = Vector3.new(cpPos.X, 40, cpPos.Z)
-            local endPos = Vector3.new(cpPos.X, 40, cpPos.Z + 30)
+            r.CFrame = CFrame.new(0, 40, currentZ)
             
-            local _, r = getCharacter()
-            if r then
-                r.CFrame = CFrame.new(startPos)
-                task.wait(0.15)
-                
-                r.CFrame = CFrame.new(midPos)
-                pcall(function()
-                    firetouchinterest(r, cp, 0)
-                    firetouchinterest(r, cp, 1)
-                end)
-                task.wait(0.3) -- Give the server time to register the touch
-                
-                r.CFrame = CFrame.new(endPos)
-                task.wait(0.15)
+            -- Also fire touch interest on any nearby DarknessPart
+            for _, cp in ipairs(checkpoints) do
+                if cp and cp.Parent and math.abs(cp.Position.Z - currentZ) < 80 then
+                    pcall(function()
+                        firetouchinterest(r, cp, 0)
+                        firetouchinterest(r, cp, 1)
+                    end)
+                end
             end
+            
+            task.wait(0.2) -- Stable hold time per stage interval
         end
+        currentZ = currentZ + 150
     end
 end
 
