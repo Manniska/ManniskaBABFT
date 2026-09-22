@@ -135,14 +135,14 @@ local function navigateToPoint(targetCFrame, speed)
     return tween
 end
 
--- Find all actual stage checkpoint parts in Workspace so we touch every single one
+-- Find all actual stage checkpoint parts in Workspace by searching for DarknessPart or stage components
 local function getStageCheckpoints()
     local checkpoints = {}
     for _, obj in ipairs(Workspace:GetDescendants()) do
         if obj:IsA("BasePart") then
-            local name = obj.Name:lower()
-            -- BABFT stage checkpoint parts / team touch blocks are usually located along the map
-            if name:find("stage") or name:find("checkpoint") or (obj.Position.Z > 0 and obj.Position.Z < 9500 and obj.Size.Z > 1 and obj.Size.Magnitude > 15) then
+            local name = obj.Name
+            -- BABFT stage transition walls are named DarknessPart
+            if name == "DarknessPart" or name:lower():find("darknesspart") then
                 table.insert(checkpoints, obj)
             end
         end

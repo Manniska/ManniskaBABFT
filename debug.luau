@@ -1,60 +1,52 @@
 -- =====================================================================
---  MANNISKABABFT - DEBUG INSPECTOR SCRIPT
+--  MANNISKABABFT - INTERACTIVE CLICK INSPECTOR DEBUG SCRIPT
 -- =====================================================================
--- Run this script in your executor console to inspect all relevant parts,
--- stage checkpoints, models, and chest names in Build A Boat For Treasure.
+-- Run this in your executor. Click/tap any part in the game world 
+-- to instantly print its Name, Class, Parent, Size, Position, and FullPath to the console!
 
-local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+
 local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 
-print("========================================")
-print("  MANNISKABABFT DEBUG INSPECTOR STARTED  ")
-print("========================================")
+print("==================================================")
+print("  MANNISKABABFT CLICK INSPECTOR ACTIVATED         ")
+print("  Click any part in the game world to inspect it! ")
+print("==================================================")
 
--- 1. Inspect Workspace Descendants for Stages / Checkpoints / Chests
-local foundStages = 0
-local foundChests = 0
+local active = true
 
-for _, obj in ipairs(Workspace:GetDescendants()) do
-    local nameLower = obj.Name:lower()
+-- Listen for mouse / touch click
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not active then return end
     
-    -- Check for Chests
-    if nameLower:find("chest") or nameLower:find("gold") then
-        foundChests = foundChests + 1
-        print(string.format("[CHEST/GOLD] Name: %s | Class: %s | Path: %s", obj.Name, obj.ClassName, obj:GetFullName()))
-    end
-    
-    -- Check for Stages or Checkpoints
-    if nameLower:find("stage") or nameLower:find("checkpoint") or nameLower:find("wall") or nameLower:find("part") then
-        if obj:IsA("BasePart") then
-            -- Only print parts within stage zones (Z > 0 and Z < 9600)
-            local pos = obj.Position
-            if pos.Z > 0 and pos.Z < 9600 and obj.Size.Magnitude > 10 then
-                foundStages = foundStages + 1
-                -- Print every 10th or specific items to avoid spamming console
-                if foundStages <= 30 then
-                    print(string.format("[STAGE PART] Name: %s | Size: (%.1f, %.1f, %.1f) | Pos: (%.1f, %.1f, %.1f)", 
-                        obj.Name, obj.Size.X, obj.Size.Y, obj.Size.Z, pos.X, pos.Y, pos.Z))
-                end
-            end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local mouseLocation = UserInputService:GetMouseLocation()
+        local ray = Camera:ViewportPointToRay(mouseLocation.X, mouseLocation.Y)
+        
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+        raycastParams.IgnoreWater = true
+        
+        if LocalPlayer.Character then
+            raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+        end
+        
+        local result = Workspace:Raycast(ray.Origin, ray.Direction * 1000, raycastParams)
+        
+        if result and result.Instance then
+            local part = result.Instance
+            print("--------------------------------------------------")
+            print("[INSPECTED PART CLICKED]")
+            print("  Name     : " .. tostring(part.Name))
+            print("  Class    : " .. tostring(part.ClassName))
+            print("  Parent   : " .. tostring(part.Parent and part.Parent.Name or "None"))
+            print("  Position : " .. tostring(part.Position))
+            print("  Size     : " .. tostring(part.Size))
+            print("  FullName : " .. tostring(part:GetFullName()))
+            print("--------------------------------------------------")
         end
     end
-end
-
-print(string.format("=== SUMMARY === Total Chests: %d | Total Stage Parts logged: %d", foundChests, foundStages))
-
--- 2. Inspect Character Position & State
-local char = LocalPlayer.Character
-if char then
-    local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso")
-    if root then
-        print(string.format("[PLAYER] Position: (%.1f, %.1f, %.1f)", root.Position.X, root.Position.Y, root.Position.Z))
-    end
-else
-    print("[PLAYER] Character not found.")
-end
-
-print("========================================")
-print("  DEBUG INSPECTOR COMPLETED             ")
-print("========================================")
+end)
